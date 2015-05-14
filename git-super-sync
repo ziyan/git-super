@@ -1,0 +1,81 @@
+#!/bin/bash
+set -e
+
+SCRIPT=$(basename $0)
+BRANCH=$1
+MESSAGE=$2
+
+function usage
+{
+    echo "Usage: ${SCRIPT} [branch] [message]"
+    echo "       Update all submodules in the tree to latest of specified branch, e.g. ${SCRIPT} master \"Commit message\""
+    echo
+    exit 1  
+}
+
+function root
+{
+    [ ! -z "${GIT_SUPER_ROOT}" ] || export GIT_SUPER_ROOT=$(git-super-root)
+}
+
+function submodules
+{
+    git-super-foreach pwd
+}
+
+function sync
+{
+    # checkout and update to latest
+    git checkout --quiet "${BRANCH}" || ( echo "${SCRIPT}: $(pwd): failed to checkout ${BRANCH}"; exit 1 )
+    git pull --quiet origin "${BRANCH}" || ( echo "${SCRIPT}: $(pwd): failed to pull ${BRANCH}"; exit 1 )
+    git submodule update --quiet --init || ( echo "${SCRIPT}: $(pwd): failed to update submodules"; exit 1 )
+
+    # recurse
+    submodules | for DIR in $(cat -); do
+        pushd "${DIR}" > /dev/null 2>&1
+        sync
+        popd > /dev/null 2>&1
+    done
+
+    # try to stage changed submodules
+    submodules | for DIR in $(cat -); do
+        git add "${DIR}" || ( echo "${SCRIPT}: $(pwd): failed to add ${DIR}"; exit 1 )
+    done
+
+    # skip if nothing to commit
+    echo -n "${SCRIPT}: $(pwd): "
+    if git diff --cached --quiet; then
+        echo "unchanged"
+        return
+    fi
+
+    echo "commit"
+    if [ -z "${MESSAGE}" ]; then
+        git commit || ( echo "${SCRIPT}: $(pwd): failed to commit"; exit 1 )
+    else
+        git commit --quiet -m "${MESSAGE}" || ( echo "${SCRIPT}: $(pwd): failed to commit"; exit 1 )
+    fi
+    git push --update --quiet origin "${BRANCH}" || ( echo "${SCRIPT}: $(pwd): failed to push"; exit 1 )
+}
+
+if [[ $# -gt 2 ]] || [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+    usage
+fi
+
+# go to root git repository
+root
+cd ${GIT_SUPER_ROOT}
+
+# figure out what branch to sync to
+if [ -z "${BRANCH}" ]; then
+    BRANCH=$(git rev-parse --abbrev-ref HEAD)
+    if [ "${BRANCH}" == "HEAD" ]; then
+        echo "${SCRIPT}: $(pwd): root of repository not on any branch"
+        exit 1
+    fi
+fi
+
+echo "${SCRIPT}: $(pwd): syncing tree to branch ${BRANCH}"
+
+# recursively checkout all repository to latest branch
+sync

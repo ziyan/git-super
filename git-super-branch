@@ -1,0 +1,58 @@
+#!/bin/bash
+set -e
+
+SCRIPT=$(basename $0)
+BRANCH=$1
+MESSAGE=$2
+
+function usage
+{
+    echo "Usage: ${SCRIPT} <branch>"
+    echo "       Branch and push all submodules in tree, e.g. ${SCRIPT} newbranch"
+    echo
+    exit 1  
+}
+
+function root
+{
+    [ ! -z "${GIT_SUPER_ROOT}" ] || export GIT_SUPER_ROOT=$(git-super-root)
+}
+
+function submodules
+{
+    git-super-foreach pwd
+}
+
+function branch
+{
+    # checkout and update to latest
+    git rev-parse --abbrev-ref "${BRANCH}" > /dev/null 2>&1 || git branch "${BRANCH}" || ( echo "${SCRIPT}: $(pwd): failed to create branch ${BRANCH}"; exit 1 )
+    git checkout --quiet "${BRANCH}" || ( echo "${SCRIPT}: $(pwd): failed to checkout ${BRANCH}"; exit 1 )
+    git push --set-upstream --quiet origin "${BRANCH}" > /dev/null 2>&1 || ( echo "${SCRIPT}: $(pwd): failed to push"; exit 1 )
+
+    # recurse
+    submodules | for DIR in $(cat -); do
+        pushd "${DIR}" > /dev/null 2>&1
+        branch
+        popd > /dev/null 2>&1
+    done
+}
+
+if [[ $# -gt 2 ]] || [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+    usage
+fi
+
+# go to root git repository
+root
+
+# figure out what branch to sync to
+if [ -z "${BRANCH}" ]; then
+    BRANCH=$(git rev-parse --abbrev-ref HEAD)
+    if [ "${BRANCH}" == "HEAD" ]; then
+        echo "${SCRIPT}: $(pwd): root of repository not on any branch"
+        exit 1
+    fi
+fi
+
+# recursively checkout all repository to latest branch
+branch

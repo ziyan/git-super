@@ -1,0 +1,30 @@
+#!/bin/bash
+set -e
+
+SCRIPT=$(basename $0)
+
+function usage
+{
+    echo "Usage: ${SCRIPT}"
+    echo "       Display root of git repository tree"
+    echo
+    exit 1
+}
+
+function root
+{
+    while [ ! -d .git ]; do
+        DIR=$(pwd | xargs dirname)
+        [ "${DIR}" != "$(pwd)" ] || ( echo "${SCRIPT}: git repository not found"; exit 1 )
+        cd "${DIR}"
+    done
+}
+
+if [[ $# -ne 0 ]] || [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+    usage
+fi
+
+# figure out the root of git repository
+root
+
+pwd
