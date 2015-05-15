@@ -55,7 +55,7 @@ function sync
     else
         git commit --quiet -m "${MESSAGE}" || ( echo "${SCRIPT}: $(pwd): failed to commit"; exit 1 )
     fi
-    git push --set-upstream --quiet origin "${BRANCH}" || ( echo "${SCRIPT}: $(pwd): failed to push"; exit 1 )
+    git push --quiet origin "${BRANCH}" || ( echo "${SCRIPT}: $(pwd): failed to push"; exit 1 )
 }
 
 if [[ $# -gt 2 ]] || [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
