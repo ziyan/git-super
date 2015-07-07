@@ -8,7 +8,7 @@ MESSAGE=$2
 function usage
 {
     echo "Usage: ${SCRIPT} <ref> [message]"
-    echo "       Branch and push all submodules in tree, e.g. ${SCRIPT} origin/master \"Merge from master.\""
+    echo "       Merge speicified ref into local branch and push to origin, e.g. ${SCRIPT} origin/master \"Merge from master.\""
     echo
     exit 1
 }
@@ -46,7 +46,7 @@ function merge
     echo "${SCRIPT}: $(pwd)"
     if ! git diff --cached --quiet; then
         if [ -z "${MESSAGE}" ]; then
-            git commit --quiet || ( echo "${SCRIPT}: $(pwd): failed to commit"; exit 1 )
+            git commit || ( echo "${SCRIPT}: $(pwd): failed to commit"; exit 1 )
         else
             git commit --quiet -m "${MESSAGE}" || ( echo "${SCRIPT}: $(pwd): failed to commit"; exit 1 )
         fi
@@ -54,7 +54,7 @@ function merge
 
     # merge
     if [ -z "${MESSAGE}" ]; then
-        git merge --quiet "${REF}" || ( echo "${SCRIPT}: $(pwd): failed to merge"; exit 1 )
+        git merge "${REF}" || ( echo "${SCRIPT}: $(pwd): failed to merge"; exit 1 )
     else
         git merge --quiet -m "${MESSAGE}" "${REF}" || ( echo "${SCRIPT}: $(pwd): failed to merge"; exit 1 )
     fi

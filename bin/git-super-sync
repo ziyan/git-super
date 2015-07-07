@@ -51,7 +51,7 @@ function sync
 
     echo "commit"
     if [ -z "${MESSAGE}" ]; then
-        git commit --quiet || ( echo "${SCRIPT}: $(pwd): failed to commit"; exit 1 )
+        git commit || ( echo "${SCRIPT}: $(pwd): failed to commit"; exit 1 )
     else
         git commit --quiet -m "${MESSAGE}" || ( echo "${SCRIPT}: $(pwd): failed to commit"; exit 1 )
     fi
