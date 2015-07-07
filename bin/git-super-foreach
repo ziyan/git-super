@@ -5,7 +5,7 @@ SCRIPT=$(basename $0)
 
 function usage
 {
-    echo "Usage: ${SCRIPT} [command] ..."
+    echo "Usage: ${SCRIPT} <command> ..."
     echo "       Run command in each submodule in the tree, e.g. ${SCRIPT} pwd"
     echo
     exit 1
