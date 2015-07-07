@@ -13,5 +13,5 @@ setup(
         'bin/git-super-sync',
         'bin/git-super-branch',
         'bin/git-super-merge',
-    ])
+    ],
 )
