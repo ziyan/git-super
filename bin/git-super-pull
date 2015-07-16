@@ -1,0 +1,62 @@
+#!/bin/bash
+set -e
+
+SCRIPT=$(basename $0)
+BRANCH=$1
+MESSAGE=$2
+
+function usage
+{
+    echo "Usage: ${SCRIPT} [branch]"
+    echo "       Checkout and pull all submodules in the tree to latest of specified branch, e.g. ${SCRIPT} master"
+    echo
+    exit 1
+}
+
+function root
+{
+    [ ! -z "${GIT_SUPER_ROOT}" ] || export GIT_SUPER_ROOT=$(git-super-root)
+}
+
+function submodules
+{
+    git-super-foreach pwd
+}
+
+function sync
+{
+    # checkout and update to latest
+    git checkout --quiet "${BRANCH}" || ( echo "${SCRIPT}: $(pwd): failed to checkout ${BRANCH}"; exit 1 )
+    echo "${SCRIPT}: $(pwd): $(git rev-parse --abbrev-ref HEAD)"
+
+    git pull origin "${BRANCH}" || ( echo "${SCRIPT}: $(pwd): failed to pull ${BRANCH}"; exit 1 )
+
+    # recurse
+    submodules | for DIR in $(cat -); do
+        pushd "${DIR}" > /dev/null 2>&1
+        sync
+        popd > /dev/null 2>&1
+    done
+}
+
+if [[ $# -gt 2 ]] || [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+    usage
+fi
+
+# go to root git repository
+root
+cd ${GIT_SUPER_ROOT}
+
+# figure out what branch to sync to
+if [ -z "${BRANCH}" ]; then
+    BRANCH=$(git rev-parse --abbrev-ref HEAD)
+    if [ "${BRANCH}" == "HEAD" ]; then
+        echo "${SCRIPT}: $(pwd): root of repository not on any branch"
+        exit 1
+    fi
+fi
+
+echo "${SCRIPT}: $(pwd): checking out and pulling tree to branch ${BRANCH}"
+
+# recursively checkout all repository to latest branch
+sync
