@@ -25,6 +25,7 @@ function submodules
 function branch
 {
     # checkout and update to latest
+    git fetch || ( echo "${SCRIPT}: $(pwd): failed tofetch"; exit 1 )
     git rev-parse --abbrev-ref "${BRANCH}" > /dev/null 2>&1 || git branch "${BRANCH}" || ( echo "${SCRIPT}: $(pwd): failed to create branch ${BRANCH}"; exit 1 )
     git checkout --quiet "${BRANCH}" || ( echo "${SCRIPT}: $(pwd): failed to checkout ${BRANCH}"; exit 1 )
     git push --set-upstream --quiet origin "${BRANCH}" > /dev/null 2>&1 || ( echo "${SCRIPT}: $(pwd): failed to push"; exit 1 )
