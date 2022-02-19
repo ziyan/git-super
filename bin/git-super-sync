@@ -7,29 +7,30 @@ MESSAGE=$2
 
 function usage
 {
-    echo "Usage: ${SCRIPT} [branch] [message]"
-    echo "       Update all submodules in the tree to latest of specified branch, e.g. ${SCRIPT} master \"Commit message\""
-    echo
+    echo "Usage: ${SCRIPT} [branch] [message]" >&2
+    echo "       Update all submodules in the tree to latest of specified branch, e.g. ${SCRIPT} master \"Commit message\"" >&2
+    echo >&2
     exit 1  
 }
 
-function root
+function fatal
 {
-    [ ! -z "${GIT_SUPER_ROOT}" ] || export GIT_SUPER_ROOT=$(git-super-root)
+    echo "${SCRIPT}: $(pwd): $1" >&2
+    exit 1
 }
 
 function submodules
 {
-    git-super-foreach pwd
+    git submodule foreach --quiet pwd
 }
 
 function sync
 {
     # checkout and update to latest
-    git fetch --quiet origin "${BRANCH}" || ( echo "${SCRIPT}: $(pwd): failed to fetch ${BRANCH}"; exit 1 )
-    git checkout --quiet "${BRANCH}" || ( echo "${SCRIPT}: $(pwd): failed to checkout ${BRANCH}"; exit 1 )
-    git pull --quiet origin "${BRANCH}" || ( echo "${SCRIPT}: $(pwd): failed to pull ${BRANCH}"; exit 1 )
-    git submodule update --quiet --init || ( echo "${SCRIPT}: $(pwd): failed to update submodules"; exit 1 )
+    git fetch --quiet origin "${BRANCH}" || fatal "failed to fetch ${BRANCH}"
+    git checkout --quiet "${BRANCH}" || fatal "failed to checkout ${BRANCH}"
+    git pull --quiet origin "${BRANCH}" || fatal "failed to pull ${BRANCH}"
+    git submodule update --quiet --init || fatal "failed to update submodules"
 
     # recurse
     submodules | for DIR in $(cat -); do
@@ -40,7 +41,7 @@ function sync
 
     # try to stage changed submodules
     submodules | for DIR in $(cat -); do
-        git add "${DIR}" || ( echo "${SCRIPT}: $(pwd): failed to add ${DIR}"; exit 1 )
+        git add "${DIR}" || fatal "failed to add ${DIR}"
     done
 
     # skip if nothing to commit
@@ -52,11 +53,11 @@ function sync
 
     echo "commit"
     if [ -z "${MESSAGE}" ]; then
-        git commit || ( echo "${SCRIPT}: $(pwd): failed to commit"; exit 1 )
+        git commit || fatal "failed to commit"
     else
-        git commit --quiet -m "${MESSAGE}" || ( echo "${SCRIPT}: $(pwd): failed to commit"; exit 1 )
+        git commit --quiet -m "${MESSAGE}" || fatal "failed to commit"
     fi
-    git push --quiet origin "${BRANCH}" || ( echo "${SCRIPT}: $(pwd): failed to push"; exit 1 )
+    git push --quiet origin "${BRANCH}" || fatal "failed to push"
 }
 
 if [[ $# -gt 2 ]] || [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
@@ -64,14 +65,16 @@ if [[ $# -gt 2 ]] || [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
 fi
 
 # go to root git repository
-root
-cd ${GIT_SUPER_ROOT}
+if [ -z "${GIT_SUPER_ROOT}" ]; then
+    export GIT_SUPER_ROOT="$(git-super-root)"
+fi
+cd "${GIT_SUPER_ROOT}"
 
 # figure out what branch to sync to
 if [ -z "${BRANCH}" ]; then
     BRANCH=$(git rev-parse --abbrev-ref HEAD)
     if [ "${BRANCH}" == "HEAD" ]; then
-        echo "${SCRIPT}: $(pwd): root of repository not on any branch"
+      fatal "root of repository not on any branch" >&2
         exit 1
     fi
 fi

@@ -6,32 +6,28 @@ BRANCH=$1
 
 function usage
 {
-    echo "Usage: ${SCRIPT} [branch]"
-    echo "       Branch and push all submodules in tree, e.g. ${SCRIPT} newbranch"
-    echo
+    echo "Usage: ${SCRIPT} [branch]" >&2
+    echo "       Branch and push all submodules in tree, e.g. ${SCRIPT} newbranch" >&2
+    echo >&2
     exit 1
 }
 
-function root
+function fatal
 {
-    [ ! -z "${GIT_SUPER_ROOT}" ] || export GIT_SUPER_ROOT=$(git-super-root)
-}
-
-function submodules
-{
-    git-super-foreach pwd
+    echo "${SCRIPT}: $(pwd): $1" >&2
+    exit 1
 }
 
 function branch
 {
     # checkout and update to latest
-    git fetch || ( echo "${SCRIPT}: $(pwd): failed tofetch"; exit 1 )
-    git rev-parse --abbrev-ref "${BRANCH}" > /dev/null 2>&1 || git branch "${BRANCH}" || ( echo "${SCRIPT}: $(pwd): failed to create branch ${BRANCH}"; exit 1 )
-    git checkout --quiet "${BRANCH}" || ( echo "${SCRIPT}: $(pwd): failed to checkout ${BRANCH}"; exit 1 )
-    git push --set-upstream --quiet origin "${BRANCH}" > /dev/null 2>&1 || ( echo "${SCRIPT}: $(pwd): failed to push"; exit 1 )
+    git fetch || fatal "failed to fetch"
+    git rev-parse --abbrev-ref "${BRANCH}" > /dev/null 2>&1 || git branch "${BRANCH}" || fatal "failed to create branch ${BRANCH}"
+    git checkout --quiet "${BRANCH}" || fatal "failed to checkout ${BRANCH}"
+    git push --set-upstream --quiet origin "${BRANCH}" > /dev/null 2>&1 || fatal "failed to push"
 
     # recurse
-    submodules | for DIR in $(cat -); do
+    git submodule foreach --quiet pwd | for DIR in $(cat -); do
         pushd "${DIR}" > /dev/null 2>&1
         branch
         popd > /dev/null 2>&1
@@ -42,8 +38,10 @@ if [[ $# -gt 1 ]] || [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
     usage
 fi
 
-# go to root git repository
-root
+# figure out the root
+if [ -z "${GIT_SUPER_ROOT}" ]; then
+    export GIT_SUPER_ROOT="$(git-super-root)"
+fi
 
 # figure out what branch to sync to
 if [ -z "${BRANCH}" ]; then

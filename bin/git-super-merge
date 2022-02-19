@@ -7,59 +7,55 @@ MESSAGE=$2
 
 function usage
 {
-    echo "Usage: ${SCRIPT} <ref> [message]"
-    echo "       Merge speicified ref into local branch and push to origin, e.g. ${SCRIPT} origin/master \"Merge from master.\""
-    echo
+    echo "Usage: ${SCRIPT} <ref> [message]" >&2
+    echo "       Merge speicified ref into local branch and push to origin, e.g. ${SCRIPT} origin/master \"Merge from master.\"" >&2
+    echo >&2
     exit 1
 }
 
-function root
+function fatal
 {
-    [ ! -z "${GIT_SUPER_ROOT}" ] || export GIT_SUPER_ROOT=$(git-super-root)
-}
-
-function submodules
-{
-    git-super-foreach pwd
+    echo "${SCRIPT}: $(pwd): $1" >&2
+    exit 1
 }
 
 function merge
 {
     # checkout and update to latest
-    git fetch --quiet origin "${BRANCH}" || ( echo "${SCRIPT}: $(pwd): failed to fetch ${BRANCH}"; exit 1 )
-    git checkout --quiet "${BRANCH}" || ( echo "${SCRIPT}: $(pwd): failed to checkout ${BRANCH}"; exit 1 )
-    git pull --quiet origin "${BRANCH}" || ( echo "${SCRIPT}: $(pwd): failed to pull ${BRANCH}"; exit 1 )
-    git submodule update --quiet --init || ( echo "${SCRIPT}: $(pwd): failed to update submodules"; exit 1 )
+    git fetch --quiet origin "${BRANCH}" || fatal "failed to fetch ${BRANCH}"
+    git checkout --quiet "${BRANCH}" || fatal "failed to checkout ${BRANCH}"
+    git pull --quiet origin "${BRANCH}" || fatal "failed to pull ${BRANCH}"
+    git submodule update --quiet --init || fatal "failed to update submodules"
 
     # recurse
-    submodules | for DIR in $(cat -); do
+    git submodule foreach --quiet pwd | for DIR in $(cat -); do
         pushd "${DIR}" > /dev/null 2>&1
         merge
         popd > /dev/null 2>&1
     done
 
     # try to stage changed submodules
-    submodules | for DIR in $(cat -); do
-        git add "${DIR}" || ( echo "${SCRIPT}: $(pwd): failed to add ${DIR}"; exit 1 )
+    git submodule foreach --quiet pwd | for DIR in $(cat -); do
+        git add "${DIR}" || fatal "failed to add ${DIR}"
     done
 
     # skip if nothing to commit
     echo "${SCRIPT}: $(pwd)"
     if ! git diff --cached --quiet; then
         if [ -z "${MESSAGE}" ]; then
-            git commit || ( echo "${SCRIPT}: $(pwd): failed to commit"; exit 1 )
+            git commit || fatal "failed to commit"
         else
-            git commit --quiet -m "${MESSAGE}" || ( echo "${SCRIPT}: $(pwd): failed to commit"; exit 1 )
+            git commit --quiet -m "${MESSAGE}" || fatal "failed to commit"
         fi
     fi
 
     # merge
     if [ -z "${MESSAGE}" ]; then
-        git merge "${REF}" || ( echo "${SCRIPT}: $(pwd): failed to merge"; exit 1 )
+        git merge "${REF}" || fatal "failed to merge"
     else
-        git merge --quiet -m "${MESSAGE}" "${REF}" || ( echo "${SCRIPT}: $(pwd): failed to merge"; exit 1 )
+        git merge --quiet -m "${MESSAGE}" "${REF}" || fatal "failed to merge"
     fi
-    git push --quiet origin "${BRANCH}" || ( echo "${SCRIPT}: $(pwd): failed to push"; exit 1 )
+    git push --quiet origin "${BRANCH}" || fatal "failed to push"
 }
 
 if [[ $# -lt 1 ]] || [[ $# -gt 2 ]] || [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
@@ -67,7 +63,9 @@ if [[ $# -lt 1 ]] || [[ $# -gt 2 ]] || [ "$1" == "-h" ] || [ "$1" == "--help" ];
 fi
 
 # go to root git repository
-root
+if [ -z "${GIT_SUPER_ROOT}" ]; then
+    export GIT_SUPER_ROOT="$(git-super-root)"
+fi
 
 # figure out what branch to sync to
 BRANCH=$(git rev-parse --abbrev-ref HEAD)

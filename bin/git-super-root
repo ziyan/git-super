@@ -5,19 +5,10 @@ SCRIPT=$(basename $0)
 
 function usage
 {
-    echo "Usage: ${SCRIPT}"
-    echo "       Display root of git repository tree"
-    echo
+    echo "Usage: ${SCRIPT}" >&2
+    echo "       Display root of git repository tree" >&2
+    echo >&2
     exit 1
-}
-
-function root
-{
-    while [ ! -d .git ]; do
-        DIR=$(pwd | xargs dirname)
-        [ "${DIR}" != "$(pwd)" ] || ( echo "${SCRIPT}: git repository not found"; exit 1 )
-        cd "${DIR}"
-    done
 }
 
 if [[ $# -ne 0 ]] || [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
@@ -25,6 +16,13 @@ if [[ $# -ne 0 ]] || [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
 fi
 
 # figure out the root of git repository
-root
+while [ ! -d .git ]; do
+    DIR="$(pwd | xargs dirname)"
+    if [ "${DIR}" = "$(pwd)" ]; then
+        echo "${SCRIPT}: git repository not found" >&2
+        exit 1
+    fi
+    cd "${DIR}"
+done
 
 pwd
